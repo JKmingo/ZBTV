@@ -175,6 +175,8 @@ class UpdateSource:
                         continue
                     for zb_ip in kw_zbip_list:
                         for sub_ip in sub_ips:
+                            if not sub_ip.startswith("rtp://"):
+                                continue
                             rtp_url = sub_ip.replace("rtp:/", f"http://{zb_ip}/rtp")
                             if "#" in rtp_url:
                                 urls = rtp_url.split("#")
