@@ -1,4 +1,5 @@
 import json
+import socket
 import subprocess
 import traceback
 
@@ -173,7 +174,11 @@ async def check_stream_speed(url_info):
         else:
             url = url_info[0]
         start = time.time()
-        ffprobe = await asyncio.get_event_loop().run_in_executor(None, ffmpeg_probe, url, 20)
+
+        is_url_connected = await asyncio.get_event_loop().run_in_executor(None, is_port_open, url, 5)
+        if not is_url_connected:
+            return float("inf")
+        ffprobe = await asyncio.get_event_loop().run_in_executor(None, ffmpeg_probe, url, 5)
         if not ffprobe or not ffprobe['streams']:
             return float("inf")
         video_streams = [stream for stream in ffprobe['streams'] if stream['codec_type'] == 'video']
@@ -254,25 +259,6 @@ async def compareSpeedAndResolution(infoList):
 
     sorted_res = sorted(valid_responses, key=combined_key, reverse=True)
     return sorted_res
-
-
-def filterByDate(data):
-    """
-    Filter by date and limit
-    """
-    start_date = datetime.datetime.now() - datetime.timedelta(days=use_recent_days)
-    recent_data = []
-    unrecent_data = []
-    for (url, date, resolution), response_time in data:
-        if date:
-            date = datetime.datetime.strptime(date, "%m-%d-%Y")
-            if date >= start_date:
-                recent_data.append(((url, date, resolution), response_time))
-            else:
-                unrecent_data.append(((url, date, resolution), response_time))
-    if len(recent_data) < config.zb_urls_limit:
-        recent_data.extend(unrecent_data[: config.zb_urls_limit - len(recent_data)])
-    return recent_data[: config.zb_urls_limit]
 
 
 def getTotalUrls(data):
@@ -393,6 +379,26 @@ def convert_kwargs_to_cmd_line_args(kwargs):
         if v is not None:
             args.append('{}'.format(v))
     return args
+
+
+def is_port_open(url, timeout=5):
+    try:
+        parsed_url = urlparse(url)
+        # 提取域名和端口号
+        domain = parsed_url.hostname
+        port = parsed_url.port
+        # 创建 socket 对象
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # 设置超时时间为
+        s.settimeout(timeout)
+        # 尝试连接到主机和端口
+        s.connect((domain, port))
+        # 如果连接成功，则关闭连接并返回 True
+        s.close()
+        return True
+    except Exception as e:
+        # 如果连接失败，则返回 False
+        return False
 
 
 def ffmpeg_probe(filename, timeout, cmd='ffprobe', **kwargs):
