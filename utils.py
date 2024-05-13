@@ -74,7 +74,7 @@ def updateChannelUrlsTxt(cate, channelUrls):
     Update the category and channel urls to the final file
     """
     try:
-        with open("result_new.txt", "w", encoding="utf-8") as f:
+        with open("result_new.txt", "a", encoding="utf-8") as f:
             f.write(cate + ",#genre#\n")
             for name, urls in channelUrls.items():
                 for url in urls:
@@ -178,7 +178,7 @@ async def check_stream_speed(url_info):
         is_url_connected = await asyncio.get_event_loop().run_in_executor(None, is_port_open, url, 5)
         if not is_url_connected:
             return float("inf")
-        ffprobe = await asyncio.get_event_loop().run_in_executor(None, ffmpeg_probe, url, 5)
+        ffprobe = await asyncio.get_event_loop().run_in_executor(None, ffmpeg_probe, url, 10)
         if not ffprobe or not ffprobe['streams']:
             return float("inf")
         video_streams = [stream for stream in ffprobe['streams'] if stream['codec_type'] == 'video']
