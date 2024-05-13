@@ -14,7 +14,7 @@ from utils import (
     updateFile,
     compareSpeedAndResolution,
     getTotalUrls,
-    get_ip_address, get_zubao_source_ip
+    filter_CCTV_key, get_zubao_source_ip
 )
 import logging
 import os
@@ -59,10 +59,11 @@ post_headers = {
 }
 
 post_form = {
-    'saerch': '上海电信'
+    'saerch': config.search_keyword
 }
 
 form_data_encoded = urlencode(post_form, encoding='utf-8')
+
 
 class UpdateSource:
 
@@ -86,7 +87,7 @@ class UpdateSource:
             if len(parts) == 2:
                 if parts[1].strip() == "#genre#":
                     continue
-                key = parts[0].strip()
+                key = filter_CCTV_key(parts[0].strip())
                 value = parts[1].strip()
                 # ip_addr = get_ip_address(value)
                 # if ip_addr is None:
@@ -149,6 +150,8 @@ class UpdateSource:
         if len(zubo_source_ips) == 0:
             raise RuntimeError("No source ip found!")
 
+        print(zubo_source_ips)
+
         for cate, channelObj in channelItems.items():
             channelUrls = {}
             channelObjKeys = channelObj.keys()
@@ -157,7 +160,7 @@ class UpdateSource:
                     f"Processing {name}, {total_channels - pbar.n} channels remaining"
                 )
 
-                subscribe_ip = subscribe_dict.get(name, None)
+                subscribe_ip = subscribe_dict.get(filter_CCTV_key(name), None)
                 if subscribe_ip is None:
                     continue
 
