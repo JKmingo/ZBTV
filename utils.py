@@ -382,6 +382,7 @@ def convert_kwargs_to_cmd_line_args(kwargs):
 
 
 def is_port_open(url, timeout=5):
+    s = None
     try:
         parsed_url = urlparse(url)
         # 提取域名和端口号
@@ -394,11 +395,13 @@ def is_port_open(url, timeout=5):
         # 尝试连接到主机和端口
         s.connect((domain, port))
         # 如果连接成功，则关闭连接并返回 True
-        s.close()
         return True
     except Exception as e:
         # 如果连接失败，则返回 False
         return False
+    finally:
+        if s is not None:
+            s.close()
 
 
 def ffmpeg_probe(filename, timeout, cmd='ffprobe', **kwargs):
