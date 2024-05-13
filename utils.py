@@ -354,6 +354,7 @@ def is_match_url(url):
 
 
 def filter_CCTV_key(key: str):
+    key = re.sub(r'\[.*?\]', '', key)
     if "cctv" not in key.lower():
         return key
     chinese_pattern = re.compile("[\u4e00-\u9fa5]+")  # 匹配中文字符的 Unicode 范围
@@ -407,7 +408,7 @@ def ffmpeg_probe(filename, timeout, cmd='ffprobe', **kwargs):
             The stderr output can be retrieved by accessing the
             ``stderr`` property of the exception.
     """
-    args = [cmd, '-show_format', '-show_streams', '-of', 'json']
+    args = [cmd, '-select_streams', 'v', '-show_streams', '-of', 'json']
     args += convert_kwargs_to_cmd_line_args(kwargs)
     args += [filename]
     p = None
