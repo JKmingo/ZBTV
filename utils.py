@@ -73,7 +73,7 @@ def updateChannelUrlsTxt(cate, channelUrls):
     Update the category and channel urls to the final file
     """
     try:
-        with open("result_new.txt", "a", encoding="utf-8") as f:
+        with open("result_new.txt", "w", encoding="utf-8") as f:
             f.write(cate + ",#genre#\n")
             for name, urls in channelUrls.items():
                 for url in urls:
@@ -260,14 +260,6 @@ def filterByDate(data):
     """
     Filter by date and limit
     """
-    default_recent_days = 60
-    use_recent_days = getattr(config, "recent_days", 60)
-    if (
-            not isinstance(use_recent_days, int)
-            or use_recent_days <= 0
-            or use_recent_days > 365
-    ):
-        use_recent_days = default_recent_days
     start_date = datetime.datetime.now() - datetime.timedelta(days=use_recent_days)
     recent_data = []
     unrecent_data = []
@@ -278,17 +270,19 @@ def filterByDate(data):
                 recent_data.append(((url, date, resolution), response_time))
             else:
                 unrecent_data.append(((url, date, resolution), response_time))
-    if len(recent_data) < config.zb_source_limit:
-        recent_data.extend(unrecent_data[: config.zb_source_limit - len(recent_data)])
-    return recent_data[: config.zb_source_limit]
+    if len(recent_data) < config.zb_urls_limit:
+        recent_data.extend(unrecent_data[: config.zb_urls_limit - len(recent_data)])
+    return recent_data[: config.zb_urls_limit]
 
 
 def getTotalUrls(data):
     """
     Get the total urls with filter by date and depulicate
     """
-    total_urls = []
-    total_urls = [url for (url, _, _), _ in data]
+    if len(data) > config.zb_urls_limit:
+        total_urls = [url for (url, _, _), _ in data[:config.zb_urls_limit]]
+    else:
+        total_urls = [url for (url, _, _), _ in data]
     return list(dict.fromkeys(total_urls))
 
 
@@ -362,6 +356,8 @@ def filter_CCTV_key(key: str):
     result = re.sub(r'\[\d+\*\d+\]', '', filtered_text)
     if "-" not in result:
         result = result.replace("CCTV", "CCTV-")
+    if result.upper().endswith("HD"):
+        result = result[:-2]  # 去掉最后两个字符
     return result.strip()
 
 
