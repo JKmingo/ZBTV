@@ -187,7 +187,6 @@ async def check_stream_speed(url_info):
             height = video_streams[0]['height']
             # if int(height) < 720:
             #     return float("inf")
-            url_info[0] = url_info[0] + f"${width}x{height}"
             # print(width, height)
             if is_v6:
                 url_info[0] = url_info[0] + "|ipv6"
