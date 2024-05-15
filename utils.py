@@ -1,7 +1,6 @@
 import json
 import socket
 import subprocess
-import threading
 import traceback
 
 import requests
@@ -18,7 +17,6 @@ import os
 import urllib.parse
 import ipaddress
 from urllib.parse import urlparse, quote
-import concurrent.futures
 
 try:
     from collections.abc import Iterable
@@ -146,7 +144,21 @@ def getUrlInfo(result, channel_name):
     return url, date, resolution
 
 
-def check_stream_speed(url_info):
+# async def getSpeed(url):
+#     async with aiohttp.ClientSession() as session:
+#         start = time.time()
+#         try:
+#             async with session.get(url, timeout=5) as response:
+#                 resStatus = response.status
+#         except:
+#             return float("inf")
+#         end = time.time()
+#         if resStatus == 200:
+#             return int(round((end - start) * 1000))
+#         else:
+#             return float("inf")
+
+async def check_stream_speed(url_info):
     try:
         is_v6 = is_ipv6(url_info[0])
         if is_v6 and os.getenv("ipv6_proxy"):
@@ -155,56 +167,63 @@ def check_stream_speed(url_info):
             if response.status_code == 200:
                 if not url_info[2]:
                     url_info[2] = '1920x1080'
-                if config.xianlu_type == 2:
-                    url_info[0] = url_info[0] + f"${url_info[2]}|ipv6"
-                return float("inf")
+                url_info[0] = url_info[0] + f"${url_info[2]}|ipv6"
+                return 1
             else:
-                return float("-inf")
+                return float("inf")
         else:
             url = url_info[0]
-        video_info = ffmpeg_url(url, config.timeout if config.timeout else 10)
-        if video_info is None:
-            return float("-inf")
-        frame, resolution = analyse_video_info(video_info)
-        if frame is None:
-            return float("-inf")
-        if config.xianlu_type == 2 and resolution:
-            url_info[0] = url_info[0] + f"${resolution}"
+        start = time.time()
+
+        is_url_connected = await asyncio.get_event_loop().run_in_executor(None, is_port_open, url, 5)
+        if not is_url_connected:
+            return float("inf")
+        ffprobe = await asyncio.get_event_loop().run_in_executor(None, ffmpeg_probe, url, 10)
+        if not ffprobe or not ffprobe['streams']:
+            return float("inf")
+        video_streams = [stream for stream in ffprobe['streams'] if stream['codec_type'] == 'video']
+        if video_streams:
+            width = video_streams[0]['width']
+            height = video_streams[0]['height']
+            # if int(height) < 720:
+            #     return float("inf")
+            url_info[0] = url_info[0] + f"${width}x{height}"
+            # print(width, height)
             if is_v6:
                 url_info[0] = url_info[0] + "|ipv6"
-        url_info[2] = resolution
-        return frame
+            url_info[2] = f"{width}x{height}"
+            end = time.time()
+            return int(round((end - start) * 1000))
+        else:
+            return float("inf")
+        # end = time.time()
+        # return int(round((end - start) * 1000))
     except Exception as e:
         # traceback.print_exc()
         print(e)
-        return float("-inf")
+        return float("inf")
 
 
-def getSpeed(url_info):
+async def getSpeed(url_info):
     url, _, _ = url_info
     if "$" in url:
         url = url.split('$')[0]
     url = quote(url, safe=':/?&=$[]')
     url_info[0] = url
     try:
-        speed = check_stream_speed(url_info)
+        speed = await check_stream_speed(url_info)
         return speed
     except Exception:
-        return float("-inf")
+        return float("inf")
 
 
-def compareSpeedAndResolution(infoList: list):
+async def compareSpeedAndResolution(infoList):
     """
     Sort by speed and resolution
     """
-    response_times = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=config.thread_num) as executor:
-        futures = executor.map(getSpeed, infoList)
-        for future in futures:
-            response_times.append(future)
-    # response_times = asyncio.gather(*[getSpeed(url_info) for url_info in infoList])
+    response_times = await asyncio.gather(*[getSpeed(url_info) for url_info in infoList])
     valid_responses = [
-        (info, rt) for info, rt in zip(infoList, response_times) if rt != float("-inf")
+        (info, rt) for info, rt in zip(infoList, response_times) if rt != float("inf")
     ]
 
     def extract_resolution(resolution_str):
@@ -234,7 +253,7 @@ def compareSpeedAndResolution(infoList: list):
         (_, _, resolution), response_time = item
         resolution_value = extract_resolution(resolution) if resolution else 0
         return (
-                response_time_weight * response_time
+                -(response_time_weight * response_time)
                 + resolution_weight * resolution_value
         )
 
@@ -414,30 +433,13 @@ def ffmpeg_probe(filename, timeout, cmd='ffprobe', **kwargs):
         graceful_exit(p)
 
 
-def ffmpeg_url(url, timeout, cmd='ffmpeg'):
-    args = [cmd, '-t', str(timeout), '-stats', '-i', url, '-f', 'null', '-']
-    try:
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = p.communicate()
-        if out:
-            res = out.decode('utf-8')
-            return res
-        if err:
-            res = err.decode('utf-8')
-            return res
-        return None
-    except Exception:
-        # traceback.print_exc()
-        return None
-
-
 def graceful_exit(process):
     if process is None:
         return
     try:
         process.terminate()
         process.wait(timeout=1)
-    except Exception:
+    except subprocess.TimeoutExpired:
         process.kill()
 
 
@@ -461,17 +463,3 @@ def get_zubao_source_ip(result_div):
     if "存活" not in str(result_div):
         return None
     return a_elems[0].get_text(strip=True)
-
-
-def analyse_video_info(video_info):
-    frame_size = float("-inf")
-    resolution = None
-    if video_info is not None:
-        info_data = video_info.replace(" ", "")
-        matches = re.findall(r"frame=(\d+)", info_data)
-        if matches:
-            frame_size = int(matches[-1])
-        match = re.search(r'(\d{3,4}x\d{3,4})', video_info)
-        if match:
-            resolution = match.group(0)
-    return frame_size, resolution
