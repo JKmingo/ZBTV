@@ -67,7 +67,7 @@ class UpdateSource:
     def __init__(self, callback=None):
         self.callback = callback
 
-    async def visitPage(self, channelItems):
+    def visitPage(self, channelItems):
         total_channels = sum(len(channelObj) for _, channelObj in channelItems.items())
         pbar = tqdm(total=total_channels)
 
@@ -129,6 +129,7 @@ class UpdateSource:
                             if zubo_source_ip is not None:
                                 zubo_source_ips.add(zubo_source_ip)
                         except Exception as e:
+                            # traceback.print_exc()
                             print(f"Error on result {result}: {e}")
                             continue
 
@@ -148,7 +149,7 @@ class UpdateSource:
                     if total_page_size is None or page >= total_page_size:
                         break
                 except Exception as e:
-                    traceback.print_exc()
+                    # traceback.print_exc()
                     print(f"Error on page {page}: {e}")
                     continue
 
@@ -185,7 +186,7 @@ class UpdateSource:
                             else:
                                 infoList.append([rtp_url, None, None])
                 try:
-                    sorted_data = await compareSpeedAndResolution(infoList)
+                    sorted_data = compareSpeedAndResolution(infoList)
                     if sorted_data:
                         channelUrls[name] = (
                                 getTotalUrls(sorted_data) or channelObj[name]
@@ -204,7 +205,7 @@ class UpdateSource:
         pbar.close()
 
     def main(self):
-        asyncio.run(self.visitPage(getChannelItems()))
+        self.visitPage(getChannelItems())
         for handler in logger.handlers:
             handler.close()
             logger.removeHandler(handler)
