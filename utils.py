@@ -144,20 +144,6 @@ def getUrlInfo(result, channel_name):
     return url, date, resolution
 
 
-# async def getSpeed(url):
-#     async with aiohttp.ClientSession() as session:
-#         start = time.time()
-#         try:
-#             async with session.get(url, timeout=5) as response:
-#                 resStatus = response.status
-#         except:
-#             return float("inf")
-#         end = time.time()
-#         if resStatus == 200:
-#             return int(round((end - start) * 1000))
-#         else:
-#             return float("inf")
-
 async def check_stream_speed(url_info):
     try:
         is_v6 = is_ipv6(url_info[0])
@@ -167,41 +153,29 @@ async def check_stream_speed(url_info):
             if response.status_code == 200:
                 if not url_info[2]:
                     url_info[2] = '1920x1080'
-                url_info[0] = url_info[0] + f"${url_info[2]}|ipv6"
-                return 1
-            else:
+                if config.xianlu_type == 2:
+                    url_info[0] = url_info[0] + f"${url_info[2]}|ipv6"
                 return float("inf")
+            else:
+                return float("-inf")
         else:
             url = url_info[0]
-        start = time.time()
-
-        is_url_connected = await asyncio.get_event_loop().run_in_executor(None, is_port_open, url, 5)
-        if not is_url_connected:
-            return float("inf")
-        ffprobe = await asyncio.get_event_loop().run_in_executor(None, ffmpeg_probe, url, 10)
-        if not ffprobe or not ffprobe['streams']:
-            return float("inf")
-        video_streams = [stream for stream in ffprobe['streams'] if stream['codec_type'] == 'video']
-        if video_streams:
-            width = video_streams[0]['width']
-            height = video_streams[0]['height']
-            # if int(height) < 720:
-            #     return float("inf")
-            url_info[0] = url_info[0] + f"${width}x{height}"
-            # print(width, height)
+        video_info = await ffmpeg_url(url, config.ffmpeg_time)
+        if video_info is None:
+            return float("-inf")
+        frame, resolution = analyse_video_info(video_info)
+        if frame is None:
+            return float("-inf")
+        if config.xianlu_type == 2 and resolution:
+            url_info[0] = url_info[0] + f"${resolution}"
             if is_v6:
                 url_info[0] = url_info[0] + "|ipv6"
-            url_info[2] = f"{width}x{height}"
-            end = time.time()
-            return int(round((end - start) * 1000))
-        else:
-            return float("inf")
-        # end = time.time()
-        # return int(round((end - start) * 1000))
+        url_info[2] = resolution
+        return frame
     except Exception as e:
         # traceback.print_exc()
         print(e)
-        return float("inf")
+        return float("-inf")
 
 
 async def getSpeed(url_info):
@@ -214,7 +188,7 @@ async def getSpeed(url_info):
         speed = await check_stream_speed(url_info)
         return speed
     except Exception:
-        return float("inf")
+        return float("-inf")
 
 
 async def compareSpeedAndResolution(infoList):
@@ -223,7 +197,7 @@ async def compareSpeedAndResolution(infoList):
     """
     response_times = await asyncio.gather(*[getSpeed(url_info) for url_info in infoList])
     valid_responses = [
-        (info, rt) for info, rt in zip(infoList, response_times) if rt != float("inf")
+        (info, rt) for info, rt in zip(infoList, response_times) if rt != float("-inf")
     ]
 
     def extract_resolution(resolution_str):
@@ -253,7 +227,7 @@ async def compareSpeedAndResolution(infoList):
         (_, _, resolution), response_time = item
         resolution_value = extract_resolution(resolution) if resolution else 0
         return (
-                -(response_time_weight * response_time)
+                response_time_weight * response_time
                 + resolution_weight * resolution_value
         )
 
@@ -463,3 +437,50 @@ def get_zubao_source_ip(result_div):
     if "存活" not in str(result_div):
         return None
     return a_elems[0].get_text(strip=True)
+
+
+async def ffmpeg_url(url, timeout, cmd='ffmpeg'):
+    args = [cmd, '-t', str(timeout), '-stats', '-i', url, '-f', 'null', '-']
+    proc = None
+    res = None
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        # 等待子进程执行完毕并获取输出
+        out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout + 30)
+        if out:
+            res = out.decode('utf-8')
+        if err:
+            res = err.decode('utf-8')
+        return None
+    except asyncio.TimeoutError:
+        # traceback.print_exc()
+        if proc:
+            proc.kill()
+        return None
+    except Exception:
+        # traceback.print_exc()
+        if proc:
+            proc.kill()
+        return None
+    finally:
+        if proc:
+            await proc.wait()  # 等待子进程结束
+        return res
+
+
+def analyse_video_info(video_info):
+    frame_size = float("-inf")
+    resolution = None
+    if video_info is not None:
+        info_data = video_info.replace(" ", "")
+        matches = re.findall(r"frame=(\d+)", info_data)
+        if matches:
+            frame_size = int(matches[-1])
+        match = re.search(r'(\d{3,4}x\d{3,4})', video_info)
+        if match:
+            resolution = match.group(0)
+    return frame_size, resolution
