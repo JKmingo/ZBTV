@@ -148,7 +148,7 @@ class UpdateSource:
                     if total_page_size is None or page >= total_page_size:
                         break
                 except Exception as e:
-                    traceback.print_exc()
+                    # traceback.print_exc()
                     print(f"Error on page {page}: {e}")
                     continue
 
@@ -185,6 +185,7 @@ class UpdateSource:
                             else:
                                 infoList.append([rtp_url, None, None])
                 try:
+                    print(f"[{name}]有{len(infoList)}个直播源进行检测...")
                     sorted_data = await compareSpeedAndResolution(infoList)
                     if sorted_data:
                         channelUrls[name] = (
@@ -192,7 +193,7 @@ class UpdateSource:
                         )
                         for (url, date, resolution), response_time in sorted_data:
                             logger.info(
-                                f"Name: {name}, URL: {url}, Date: {date}, Resolution: {resolution}, Response Time: {response_time}ms"
+                                f"Name: {name}, URL: {url}, Date: {date}, Resolution: {resolution}, Response Time: {response_time}fps"
                             )
                 except Exception as e:
                     print(f"Error on sorting: {e}")
