@@ -13,9 +13,9 @@ search_dict = {
     "四川": "https://raw.githubusercontent.com/lufly9/Y/main/订阅.txt"
 }
 # 在http://tonkiang.us网站上搜索的源的页数
-search_page_num = 10
+search_page_num = 5
 # 忽略的关键词，比如在demo.txt中配置广东珠江,但在订阅中只有广东珠江高清,就需要忽略掉"高清"
-search_ignore_key = [ "4K"]
+search_ignore_key = [ "直播"]
 # crawl_type的默认值为1-只爬取http://tonkiang.us上组播源；2-只爬取crawl_urls中配置的网站；3-全部
 crawl_type = "3"
 # 收集其他大佬url中的直播源
