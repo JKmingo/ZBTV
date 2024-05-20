@@ -20,7 +20,7 @@ search_ignore_key = [ "直播"]
 crawl_type = "2"
 # 收集其他大佬url中的直播源
 crawl_urls = [
-    "https://fanmingming.com/txt?url=https://live.fanmingming.com/tv/m3u/ipv6.m3u"
+    "https://github.moeyy.xyz/https://raw.githubusercontent.com/PizazzGY/TVBox/main/live.txt"
 ]
 # ftp上传result.txt文件
 ftp_host = ""
