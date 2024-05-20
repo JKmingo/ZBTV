@@ -70,91 +70,121 @@ class UpdateSource:
         total_channels = sum(len(channelObj) for _, channelObj in channelItems.items())
         pbar = tqdm(total=total_channels)
 
+        crawl_result_dict = {}
+        if config.crawl_type in ["2", "3"]:
+            for conf_url in config.crawl_urls:
+                try:
+                    if conf_url.strip().startswith("http:"):
+                        crawl_response = requests.get(conf_url.strip(), verify=False)
+                    else:
+                        crawl_response = requests.get(conf_url.strip())
+                except Exception:
+                    continue
+                crawl_response.encoding = 'utf-8'
+                if crawl_response.status_code != 200:
+                    continue
+                crawl_data = crawl_response.text.split('\n')  # 按行分割数据
+                for line in crawl_data:
+                    parts = line.split(',')  # 按逗号分割每一行
+                    if len(parts) == 2:
+                        key = parts[0].strip() \
+                            .replace("「", "").replace("」", "") \
+                            .replace("电视台", "").replace("IPV6", "").replace("IPV4", "")
+                        key = filter_CCTV_key(key)
+                        value = parts[1].strip()
+                        if " " in key:
+                            key = key.split(" ")[0]
+                        if key in crawl_result_dict:
+                            crawl_result_dict[key].append(value)
+                        else:
+                            crawl_result_dict[key] = [value]
+
         subscribe_dict = {}
         search_keyword_list = []
-        for area, subscribe_url in config.search_dict.items():
-            if subscribe_url.startswith("http:"):
-                subscribe_response = requests.get(subscribe_url.strip(), verify=False)
-            else:
-                subscribe_response = requests.get(subscribe_url.strip())
-            subscribe_response.encoding = 'utf-8'
-            if subscribe_response.status_code != 200:
-                continue
-            subscribe_data = subscribe_response.text.split('\n')  # 按行分割数据
+        if config.crawl_type in ["1", "3"]:
+            for area, subscribe_url in config.search_dict.items():
+                if subscribe_url.startswith("http:"):
+                    subscribe_response = requests.get(subscribe_url.strip(), verify=False)
+                else:
+                    subscribe_response = requests.get(subscribe_url.strip())
+                subscribe_response.encoding = 'utf-8'
+                if subscribe_response.status_code != 200:
+                    continue
+                subscribe_data = subscribe_response.text.split('\n')  # 按行分割数据
 
-            search_area = None
-            for line in subscribe_data:
-                parts = line.split(',')  # 按逗号分割每一行
-                if len(parts) == 2:
-                    if parts[1].strip() == "#genre#":
-                        search_area = parts[0].strip() if parts[0].strip().startswith(area) else area + parts[0].strip()
-                        search_keyword_list.append(search_area)
-                        continue
-                    key = filter_CCTV_key(parts[0].strip())
-                    value = parts[1].strip()
-                    if f"{search_area}|{key}" in subscribe_dict:
-                        subscribe_dict[f"{search_area}|{key}"].append(value)
-                    else:
-                        subscribe_dict[f"{search_area}|{key}"] = [value]
-
-        kw_zbip_dict = {}
-        for search_kw in search_keyword_list:
-            zubo_source_ips = set()
-            total_page_size = None
-            get_code = None
-            session = requests.Session()
-            post_form = {
-                'saerch': search_kw,
-            }
-            for page in range(1, config.search_page_num + 1):
-                try:
-                    if page == 1:
-                        response = session.post("http://tonkiang.us/hoteliptv.php", headers=post_headers,
-                                                data=post_form)
-                    else:
-                        page_url = f"http://tonkiang.us/hoteliptv.php?page={page}&pv={quote(search_kw)}&code={get_code}"
-                        response = session.get(page_url)
-                    response.encoding = "UTF-8"
-                    soup = BeautifulSoup(response.text, "html.parser")
-                    # tables_div = soup.find("div", class_="tables")
-                    results = (
-                        soup.find_all("div", class_="result")
-                        if soup
-                        else []
-                    )
-                    for result in results:
-                        try:
-                            zubo_source_ip = get_zubao_source_ip(result)
-                            if zubo_source_ip is not None:
-                                zubo_source_ips.add(zubo_source_ip)
-                        except Exception as e:
-                            print(f"Error on result {result}: {e}")
+                search_area = None
+                for line in subscribe_data:
+                    parts = line.split(',')  # 按逗号分割每一行
+                    if len(parts) == 2:
+                        if parts[1].strip() == "#genre#":
+                            search_area = parts[0].strip() if parts[0].strip().startswith(area) else area + parts[0].strip()
+                            search_keyword_list.append(search_area)
                             continue
+                        key = filter_CCTV_key(parts[0].strip())
+                        value = parts[1].strip()
+                        if f"{search_area}|{key}" in subscribe_dict:
+                            subscribe_dict[f"{search_area}|{key}"].append(value)
+                        else:
+                            subscribe_dict[f"{search_area}|{key}"] = [value]
 
-                    if total_page_size is None:
-                        a_tags = soup.find_all("a")
-                        for a_tag in a_tags:
-                            href_value = a_tag.get("href")
-                            if href_value is not None and href_value.startswith("?page="):
-                                val = href_value.replace("?page=", "")
-                                page_num = int(val.split("&")[0])
-                                if total_page_size is None:
-                                    total_page_size = page_num
-                                elif page_num > total_page_size:
-                                    total_page_size = page_num
-                            if get_code is None and href_value is not None and "code=" in href_value:
-                                get_code = href_value.split("code=")[1]
-                    if total_page_size is None or page >= total_page_size:
-                        break
-                except Exception as e:
-                    # traceback.print_exc()
-                    print(f"Error on page {page}: {e}")
+            kw_zbip_dict = {}
+            for search_kw in search_keyword_list:
+                zubo_source_ips = set()
+                total_page_size = None
+                get_code = None
+                session = requests.Session()
+                post_form = {
+                    'saerch': search_kw,
+                }
+                for page in range(1, config.search_page_num + 1):
+                    try:
+                        if page == 1:
+                            response = session.post("http://tonkiang.us/hoteliptv.php", headers=post_headers,
+                                                    data=post_form)
+                        else:
+                            page_url = f"http://tonkiang.us/hoteliptv.php?page={page}&pv={quote(search_kw)}&code={get_code}"
+                            response = session.get(page_url)
+                        response.encoding = "UTF-8"
+                        soup = BeautifulSoup(response.text, "html.parser")
+                        # tables_div = soup.find("div", class_="tables")
+                        results = (
+                            soup.find_all("div", class_="result")
+                            if soup
+                            else []
+                        )
+                        for result in results:
+                            try:
+                                zubo_source_ip = get_zubao_source_ip(result)
+                                if zubo_source_ip is not None:
+                                    zubo_source_ips.add(zubo_source_ip)
+                            except Exception as e:
+                                print(f"Error on result {result}: {e}")
+                                continue
+
+                        if total_page_size is None:
+                            a_tags = soup.find_all("a")
+                            for a_tag in a_tags:
+                                href_value = a_tag.get("href")
+                                if href_value is not None and href_value.startswith("?page="):
+                                    val = href_value.replace("?page=", "")
+                                    page_num = int(val.split("&")[0])
+                                    if total_page_size is None:
+                                        total_page_size = page_num
+                                    elif page_num > total_page_size:
+                                        total_page_size = page_num
+                                if get_code is None and href_value is not None and "code=" in href_value:
+                                    get_code = href_value.split("code=")[1]
+                        if total_page_size is None or page >= total_page_size:
+                            break
+                    except Exception as e:
+                        # traceback.print_exc()
+                        print(f"Error on page {page}: {e}")
+                        continue
+
+                if len(zubo_source_ips) == 0:
                     continue
 
-            if len(zubo_source_ips) == 0:
-                continue
-
-            kw_zbip_dict[search_kw] = zubo_source_ips
+                kw_zbip_dict[search_kw] = zubo_source_ips
 
         for cate, channelObj in channelItems.items():
             channelUrls = {}
@@ -184,6 +214,15 @@ class UpdateSource:
                                 infoList.append([urls[1], None, None])
                             else:
                                 infoList.append([rtp_url, None, None])
+
+                if config.crawl_type in ["2", "3"]:
+                    tv_urls = crawl_result_dict.get(name, None)
+                    if tv_urls is not None:
+                        for tv_url in tv_urls:
+                            if not tv_url:
+                                continue
+                            infoList.append([tv_url, None, None])
+
                 try:
                     print(f"[{name}]有{len(infoList)}个直播源进行检测...")
                     sorted_data = await compareSpeedAndResolution(infoList)
