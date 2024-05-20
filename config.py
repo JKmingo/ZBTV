@@ -10,11 +10,19 @@ ffmpeg_time = 10
 # key: 地区，在http://tonkiang.us网站上搜索的关键词
 # value: 订阅url，在https://github.com/xisohi/IPTV-Multicast-source中找自己想要的
 search_dict = {
-    "上海": "https://mirror.ghproxy.com/https://raw.githubusercontent.com/xisohi/IPTV-Multicast-source/main/shanghai/telecom.txt",
-    "广东": "https://mirror.ghproxy.com/https://raw.githubusercontent.com/xisohi/IPTV-Multicast-source/main/guangdong/telecom.txt"
+    "上海": "https://mirror.ghproxy.com/https://raw.githubusercontent.com/xisohi/IPTV-Multicast-source/main/shanghai/telecom.txt"
 }
-search_page_num = 10
+# 在http://tonkiang.us网站上搜索的源的页数
+search_page_num = 1
+# 忽略的关键词，比如在demo.txt中配置广东珠江,但在订阅中只有广东珠江高清,就需要忽略掉"高清"
 search_ignore_key = ["高清", "4K"]
+# crawl_type的默认值为1-只爬取http://tonkiang.us上组播源；2-只爬取crawl_urls中配置的网站；3-全部
+crawl_type = "1"
+# 收集其他大佬url中的直播源
+crawl_urls = [
+    "https://fanmingming.com/txt?url=https://live.fanmingming.com/tv/m3u/ipv6.m3u",
+    "https://fanmingming.com/txt?url=https://live.fanmingming.com/tv/m3u/ipv6Plus.m3u"
+]
 # ftp上传result.txt文件
 ftp_host = ""
 ftp_port = ""
@@ -24,5 +32,5 @@ ftp_remote_file = ""
 
 # 凯速网上传文件配置
 ks_token = ""
-ks_file_id = "0" #文件目录id，0为根目录
+ks_file_id = "0"  # 文件目录id，0为根目录
 ks_file_name = ""
