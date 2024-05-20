@@ -484,3 +484,42 @@ def analyse_video_info(video_info):
         if match:
             resolution = match.group(0)
     return frame_size, resolution
+
+
+def find_matching_values(dictionary, partial_key):
+    # 遍历字典键并找到包含部分字符串的键
+    result = []
+    matching_keys = []
+    for key in dictionary:
+        if partial_key not in key:
+            continue
+        if not key.replace(partial_key, ""):
+            matching_keys.append(key)
+        elif key.replace(partial_key, "") in config.search_ignore_key:
+            matching_keys.append(key)
+    if not matching_keys:
+        return None
+    for m_key in matching_keys:
+        result += dictionary[m_key]
+    return result
+
+
+def kaisu_upload(token, file_path, new_filename, file_id="0"):
+    url = f"https://upload.kstore.space/upload/{file_id}?access_token={token}"
+    # 打开文件并上传
+    with open(file_path, 'rb') as file:
+        if new_filename:
+            files = {'file': (new_filename, file)}
+        else:
+            files = {'file': file}
+        response = requests.post(url, files=files)
+
+    # 检查响应
+    if response.status_code == 200:
+        file_id = response.json().get("data").get("id")
+        data = {
+            "fileId": file_id,
+            "isDirect": 1
+        }
+        requests.post(f"https://api.kstore.space/api/v1/file/direct?access_token={token}", data=data)
+        print("File uploaded on kaisu successfully")
