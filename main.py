@@ -16,7 +16,7 @@ from utils import (
     getTotalUrls,
     filter_CCTV_key,
     get_zubao_source_ip,
-    find_matching_values
+    find_matching_values, kaisu_upload
 )
 import logging
 import os
@@ -59,9 +59,6 @@ post_headers = {
     'Content-Type': 'application/x-www-form-urlencoded',
     'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36'
 }
-
-
-
 
 
 class UpdateSource:
@@ -243,6 +240,15 @@ class UpdateSource:
                         print('result upload success！')
                     else:
                         print('result upload fail!')
+
+            ks_token = getattr(config, "ks_token", None)
+            ks_token = ks_token if ks_token else os.getenv('ks_token')
+            ks_file_id = getattr(config, "ks_file_id", None)
+            ks_file_id = ks_file_id if ks_file_id else os.getenv('ks_file_id')
+            ks_file_name = getattr(config, "ks_file_name", None)
+            ks_file_name = ks_file_name if ks_file_name else os.getenv('ks_file_name')
+            if ks_token and ks_file_id:
+                kaisu_upload(ks_token, user_final_file, ks_file_name, ks_file_id)
         finally:
             if ftp is not None:
                 ftp.quit()
