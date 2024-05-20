@@ -21,3 +21,8 @@ ftp_port = ""
 ftp_user = ""
 ftp_pass = ""
 ftp_remote_file = ""
+
+# 凯速网上传文件配置
+ks_token = ""
+ks_file_id = "0" #文件目录id，0为根目录
+ks_file_name = ""
