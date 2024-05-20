@@ -14,7 +14,9 @@ from utils import (
     updateFile,
     compareSpeedAndResolution,
     getTotalUrls,
-    filter_CCTV_key, get_zubao_source_ip
+    filter_CCTV_key,
+    get_zubao_source_ip,
+    find_matching_values
 )
 import logging
 import os
@@ -93,7 +95,7 @@ class UpdateSource:
                         continue
                     key = filter_CCTV_key(parts[0].strip())
                     value = parts[1].strip()
-                    if key in subscribe_dict:
+                    if f"{search_area}|{key}" in subscribe_dict:
                         subscribe_dict[f"{search_area}|{key}"].append(value)
                     else:
                         subscribe_dict[f"{search_area}|{key}"] = [value]
@@ -107,7 +109,7 @@ class UpdateSource:
             post_form = {
                 'saerch': search_kw,
             }
-            for page in range(1, 100):
+            for page in range(1, config.search_page_num + 1):
                 try:
                     if page == 1:
                         response = session.post("http://tonkiang.us/hoteliptv.php", headers=post_headers,
@@ -167,7 +169,8 @@ class UpdateSource:
 
                 infoList = []
                 for search_keyword in search_keyword_list:
-                    sub_ips = subscribe_dict.get(f"{search_keyword}|{filter_CCTV_key(name)}", None)
+                    sub_ips = find_matching_values(subscribe_dict, f"{search_keyword}|{filter_CCTV_key(name)}")
+                    # sub_ips = subscribe_dict.get(f"{search_keyword}|{filter_CCTV_key(name)}", None)
                     if not sub_ips:
                         continue
                     kw_zbip_list = kw_zbip_dict.get(search_keyword, None)
