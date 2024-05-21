@@ -16,7 +16,7 @@ from utils import (
     getTotalUrls,
     filter_CCTV_key,
     get_zubao_source_ip,
-    find_matching_values, kaisu_upload
+    find_matching_values, kaisu_upload, getTotalUrlsFromInfoList
 )
 import logging
 import os
@@ -93,7 +93,7 @@ class UpdateSource:
                         key = filter_CCTV_key(key)
                         value = parts[1].strip()
                         if " " in key:
-                            key = key.split(" ")[0]
+                            key = key.replace(" ", "")
                         if key in crawl_result_dict:
                             crawl_result_dict[key].append(value)
                         else:
@@ -216,7 +216,8 @@ class UpdateSource:
                                 infoList.append([rtp_url, None, None])
 
                 if config.crawl_type in ["2", "3"]:
-                    tv_urls = crawl_result_dict.get(name, None)
+                    key_name = name.replace(" ", "")
+                    tv_urls = crawl_result_dict.get(key_name, None)
                     if tv_urls is not None:
                         for tv_url in tv_urls:
                             if not tv_url:
@@ -225,15 +226,17 @@ class UpdateSource:
 
                 try:
                     print(f"[{name}]有{len(infoList)}个直播源进行检测...")
-                    sorted_data = await compareSpeedAndResolution(infoList)
-                    if sorted_data:
-                        channelUrls[name] = (
-                                getTotalUrls(sorted_data) or channelObj[name]
-                        )
-                        for (url, date, resolution), response_time in sorted_data:
-                            logger.info(
-                                f"Name: {name}, URL: {url}, Date: {date}, Resolution: {resolution}, Response Time: {response_time}fps"
+                    channelUrls[name] = getTotalUrlsFromInfoList(infoList) or channelObj[name]
+                    if config.open_sort:
+                        sorted_data = await compareSpeedAndResolution(infoList)
+                        if sorted_data:
+                            channelUrls[name] = (
+                                    getTotalUrls(sorted_data) or channelObj[name]
                             )
+                            for (url, date, resolution), response_time in sorted_data:
+                                logger.info(
+                                    f"Name: {name}, URL: {url}, Date: {date}, Resolution: {resolution}, Response Time: {response_time}fps"
+                                )
                 except Exception as e:
                     print(f"Error on sorting: {e}")
                     continue
