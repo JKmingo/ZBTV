@@ -25,6 +25,10 @@ jobs:
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Run iptv
+      env:
+          ks_token: ${{ secrets.ks_token }}
+          ks_file_id: ${{ secrets.ks_file_id }}
+          ks_file_name: ${{ secrets.ks_file_name }}
       run: |
         python main.py
     - name: Commit and push if changed
