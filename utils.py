@@ -147,8 +147,9 @@ def getUrlInfo(result, channel_name):
 async def check_stream_speed(url_info):
     try:
         is_v6 = is_ipv6(url_info[0])
-        if is_v6 and os.getenv("ipv6_proxy"):
-            url = os.getenv("ipv6_proxy") + quote(url_info[0])
+        if is_v6 and (os.getenv("ipv6_proxy") or config.ipv6_proxy):
+            proxy = config.ipv6_proxy if config.ipv6_proxy else os.getenv("ipv6_proxy")
+            url = proxy + quote(url_info[0])
             response = requests.get(url)
             if response.status_code == 200:
                 if not url_info[2]:
@@ -195,6 +196,8 @@ async def compareSpeedAndResolution(infoList):
     """
     Sort by speed and resolution
     """
+    if not infoList:
+        return None
     response_times = await asyncio.gather(*[getSpeed(url_info) for url_info in infoList])
     valid_responses = [
         (info, rt) for info, rt in zip(infoList, response_times) if rt != float("-inf")
@@ -243,6 +246,16 @@ def getTotalUrls(data):
         total_urls = [url for (url, _, _), _ in data[:config.zb_urls_limit]]
     else:
         total_urls = [url for (url, _, _), _ in data]
+    return list(dict.fromkeys(total_urls))
+
+
+def getTotalUrlsFromInfoList(infoList):
+    """
+    Get the total urls from info list
+    """
+    total_urls = [
+        url for url, _, _ in infoList[: min(len(infoList), config.zb_urls_limit)]
+    ]
     return list(dict.fromkeys(total_urls))
 
 
@@ -469,6 +482,7 @@ async def ffmpeg_url(url, timeout, cmd='ffmpeg'):
     finally:
         if proc:
             await proc.wait()  # 等待子进程结束
+        print(res)
         return res
 
 
